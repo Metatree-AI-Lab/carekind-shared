@@ -4,6 +4,8 @@ import type { ReactElement } from "react";
 // 只放组件库自己用到的图标；新增图标前先确认真的需要（YAGNI）。
 
 const ICON_PATHS = {
+	building: ["M4 21V5h10v16", "M14 11h6v10", "M8 9h2M8 13h2M8 17h2M17 15h.01M17 18h.01", "M2 21h20"],
+	history: ["M3 11a9 9 0 1 1 2.5 7", "M3 4v7h7", "M12 7v5l3 2"],
 	search: ["M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13z", "M20 20l-4.8-4.8"],
 	close: ["M6 6l12 12", "M18 6L6 18"],
 	"chevron-down": ["M6 9l6 6 6-6"],

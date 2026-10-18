@@ -88,7 +88,7 @@ export function Table<Row>({
 }: TableProps<Row>): ReactElement {
 	return (
 		<div className="ck-table-wrap">
-			<table className="ck-table">
+			<table className="ck-table ck-table--responsive" role="table">
 				<caption className={isCaptionHidden ? "ck-sr-only" : undefined}>{caption}</caption>
 				<thead>
 					<tr>
@@ -107,9 +107,14 @@ export function Table<Row>({
 				</thead>
 				<tbody>
 					{rows.map((row) => (
-						<tr key={getRowKey(row)}>
+						<tr role="row" key={getRowKey(row)}>
 							{columns.map((column) => (
-								<td key={column.key} className={column.isNumeric ? "is-num" : undefined}>
+								<td
+									role="cell"
+									data-label={column.header}
+									key={column.key}
+									className={column.isNumeric ? "is-num" : undefined}
+								>
 									{column.render(row)}
 								</td>
 							))}

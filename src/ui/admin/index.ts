@@ -4,3 +4,4 @@ export * from "./page-header.tsx";
 export * from "./data-table.tsx";
 export * from "./confirm-name-dialog.tsx";
 export * from "./stat-card.tsx";
+export * from "./workspace-artwork.tsx";

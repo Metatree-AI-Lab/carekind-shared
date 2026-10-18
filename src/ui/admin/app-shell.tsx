@@ -1,5 +1,5 @@
 import { useId, useState, type MouseEvent, type ReactElement, type ReactNode } from "react";
-import { Icon } from "../base/icon.tsx";
+import { Icon, type IconName } from "../base/icon.tsx";
 
 // COMPONENTS.md §12A.1：跳转链接 → 持续标识条 → 侧栏（产品名、租户切换位置、导航）→ 顶栏（当前租户全称、用户）→ 主区域。
 // Demo 身份条和支持访问会话条不随滚动消失、**不能被关闭**，所以这里没有关闭按钮。
@@ -8,6 +8,7 @@ import { Icon } from "../base/icon.tsx";
 export interface NavItem {
 	href: string;
 	label: string;
+	icon?: IconName;
 	isCurrent?: boolean;
 }
 
@@ -86,6 +87,7 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: (href: stri
 	}
 	return (
 		<a href={item.href} aria-current={item.isCurrent ? "page" : undefined} onClick={handleClick}>
+			{item.icon ? <Icon name={item.icon} /> : null}
 			{item.label}
 		</a>
 	);
@@ -120,7 +122,17 @@ export function AppShell(props: AppShellProps): ReactElement {
 							<ul className="ck-sidenav-group">
 								{group.items.map((item) => (
 									<li key={item.href}>
-										<NavLink item={item} onNavigate={props.onNavigate} />
+										<NavLink
+											item={item}
+											onNavigate={
+												props.onNavigate
+													? (href) => {
+															props.onNavigate?.(href);
+															setIsNavExpanded(false);
+														}
+													: undefined
+											}
+										/>
 									</li>
 								))}
 							</ul>
@@ -138,8 +150,9 @@ export function AppShell(props: AppShellProps): ReactElement {
 					<span className="ck-avatar ck-avatar--sm" aria-hidden="true">
 						{initialsOf(props.user.name)}
 					</span>
-					<span>
-						{props.user.name} · {props.user.role}
+					<span className="ck-shell-user-details">
+						<span className="ck-shell-user-name">{props.user.name}</span>
+						<span className="ck-shell-user-role">{props.user.role}</span>
 					</span>
 					<button type="button" className="ck-btn ck-btn--text" onClick={props.user.onSignOut}>
 						Sign out

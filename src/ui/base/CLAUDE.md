@@ -20,3 +20,9 @@ COMPONENTS.md §3–§12 的通用 React 组件：Button、IconButton、Field、
 
 ## 不要做
 - 不要加入 COMPONENTS.md 没有规格的组件或变体；先补规格。
+
+## 后台视觉统一（18/10/2026）
+
+Owner: Lightman · Status: Local revision · Last reviewed: 18/10/2026
+
+`Table<Row>` 与 DataTable 同步输出 responsive table 类、显式 table/row/cell 角色和 data-label；手机重排由 meta repo CSS 控制，排序仍只在 TableHeaderCell / nextSort 实现。Icon 新增 building / history，用于后台导航。

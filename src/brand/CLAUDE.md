@@ -20,3 +20,8 @@ careKind 标准 Logo（ADR-0003，04A 星芒字标 v1）的黑、白两版 SVG�
 ## 不要做
 - 不要用文字或系统字体代替 Logo
 - 不要生成其他颜色或 App 图标（ADR-0003 未批准）
+
+## 图片与动效（18/10/2026）
+Owner: Lightman · Status: Local revision · Last reviewed: 18/10/2026
+
+新增 decoration-hands-and-heart-v1.png、decoration-nurse-review-v1.png、decoration-companionship-v1.png：从 meta repo design/design-system/ 原样复制。Owner 本次明确要求后台图片，允许作为 PageHeader 辅助品牌插画；纯装饰、不承载数据。assets.d.ts 声明 PNG URL。
