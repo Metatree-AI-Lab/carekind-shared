@@ -1,0 +1,280 @@
+import { z } from "zod";
+import { AcknowledgementSchema, IdSchema, PageQuerySchema, ReasonTextSchema, pageOf } from "../schemas/common.ts";
+import {
+	ApprovalRequestSchema,
+	ApprovalStatusSchema,
+	SuperAdminPermissionGroupSchema,
+	SuperAdminUserSchema,
+} from "../schemas/super-admin.ts";
+import {
+	DocumentTemplateRefSchema,
+	FeatureFlagOverrideSchema,
+	FeatureFlagSchema,
+	RpConsentTransitionSchema,
+	RpConsentTransitionSettingSchema,
+	RulePackEntrySchema,
+	RulePackIdSchema,
+	StateRulePackSchema,
+} from "../schemas/content.ts";
+import { AustralianStateSchema } from "../schemas/common.ts";
+import { ConfigVersionSchema } from "../schemas/config-version.ts";
+import { WorkflowConfigSchema, WorkflowItemSchema } from "../schemas/workflow-config.ts";
+import {
+	SupportAccessRequestSchema,
+	SupportAccessStatusSchema,
+	SupportAccessTargetSchema,
+	SupportTicketRefSchema,
+	MAX_SUPPORT_ACCESS_MINUTES,
+} from "../schemas/support-access.ts";
+import { AuditEventSchema, AuditQuerySchema } from "../schemas/audit.ts";
+import { DashboardMetricSchema } from "../schemas/dashboard.ts";
+import { defineEndpoint, superAdminAccess } from "./define.ts";
+import {
+	ApprovalParams,
+	FlagParams,
+	RulePackParams,
+	SupportRequestParams,
+	TemplateParams,
+	UserParams,
+} from "./params.ts";
+
+// Super Admin：four-eyes 审批、州规则包、模板库、平台下限（Layer 1）、功能开关、支持访问、审计、运营指标、内部用户。
+
+const DecisionBody = z.strictObject({ note: ReasonTextSchema.nullable() });
+
+export const superAdminPlatformEndpoints = {
+	listApprovals: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/approvals",
+		summary: "four-eyes 审批队列（默认只看 Pending）",
+		access: superAdminAccess("approvals.decide", "audit.read"),
+		query: PageQuerySchema.extend({ status: ApprovalStatusSchema.default("Pending") }),
+		response: pageOf(ApprovalRequestSchema),
+	}),
+	approve: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/approvals/:approvalId/approve",
+		summary: "第二人批准；批准人与发起人相同时返回 FourEyesRequired",
+		access: superAdminAccess("approvals.decide"),
+		params: ApprovalParams,
+		body: DecisionBody,
+		response: ApprovalRequestSchema,
+	}),
+	reject: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/approvals/:approvalId/reject",
+		summary: "拒绝审批（必须写原因）",
+		access: superAdminAccess("approvals.decide"),
+		params: ApprovalParams,
+		body: z.strictObject({ note: ReasonTextSchema }),
+		response: ApprovalRequestSchema,
+	}),
+	listRulePacks: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/rule-packs",
+		summary: "州规则包版本列表（可按州筛选）",
+		access: superAdminAccess("providers.read"),
+		query: z.strictObject({ state: AustralianStateSchema.optional() }),
+		response: z.array(StateRulePackSchema),
+	}),
+	getRulePack: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/rule-packs/:rulePackId",
+		summary: "规则包某个版本的条目与来源",
+		access: superAdminAccess("providers.read"),
+		params: RulePackParams,
+		response: StateRulePackSchema,
+	}),
+	draftRulePack: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/rule-packs",
+		summary: "起草规则包新版本（版本号由 API 按 <STATE>-<YYYY.MM>-<n> 生成）",
+		access: superAdminAccess("content.draft"),
+		body: z.strictObject({
+			state: AustralianStateSchema,
+			entries: z.array(RulePackEntrySchema),
+			sources: StateRulePackSchema.shape.sources,
+		}),
+		response: StateRulePackSchema,
+	}),
+	requestRulePackPublish: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/rule-packs/:rulePackId/publish-requests",
+		summary: "申请发布规则包（four-eyes；起草人不能批准）；先推 Demo Provider",
+		access: superAdminAccess("content.publish.request"),
+		params: z.strictObject({ rulePackId: RulePackIdSchema }),
+		body: z.strictObject({ reason: ReasonTextSchema }),
+		response: ApprovalRequestSchema,
+	}),
+	getRpConsentTransition: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/settings/rp-consent-transition",
+		summary: "约束性措施同意过渡期开关（全局 + 按州覆盖）",
+		access: superAdminAccess("providers.read"),
+		response: RpConsentTransitionSettingSchema,
+	}),
+	setRpConsentTransition: defineEndpoint({
+		method: "PUT",
+		path: "/super-admin/settings/rp-consent-transition",
+		summary: "人工切换过渡期开关（不会按日期自动切换；写审计）",
+		access: superAdminAccess("content.draft"),
+		body: z.strictObject({
+			global: RpConsentTransitionSchema,
+			stateOverrides: RpConsentTransitionSettingSchema.shape.stateOverrides,
+			reason: ReasonTextSchema,
+		}),
+		response: RpConsentTransitionSettingSchema,
+	}),
+	listTemplates: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/document-templates",
+		summary: "全局文书模板库（引用 meta repo 模板名和版本）",
+		access: superAdminAccess("providers.read"),
+		response: z.array(DocumentTemplateRefSchema),
+	}),
+	draftTemplateVersion: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/document-templates",
+		summary: "登记模板新版本（Draft）；校验 🧑 人工字段不能标为 AI 可起草",
+		access: superAdminAccess("content.draft"),
+		body: DocumentTemplateRefSchema.omit({ id: true, status: true, createdAt: true }).strict(),
+		response: DocumentTemplateRefSchema,
+	}),
+	requestTemplatePublish: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/document-templates/:templateId/publish-requests",
+		summary: "申请发布模板版本（four-eyes）",
+		access: superAdminAccess("content.publish.request"),
+		params: TemplateParams,
+		body: z.strictObject({ reason: ReasonTextSchema }),
+		response: ApprovalRequestSchema,
+	}),
+	listPlatformConfig: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/platform-config",
+		summary: "Layer 1 平台默认与下限：每个流程项的当前版本",
+		access: superAdminAccess("providers.read"),
+		response: z.array(ConfigVersionSchema),
+	}),
+	listPlatformConfigHistory: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/platform-config/:item/versions",
+		summary: "某个流程项的平台下限版本历史",
+		access: superAdminAccess("providers.read"),
+		params: z.strictObject({ item: WorkflowItemSchema }),
+		response: z.array(ConfigVersionSchema),
+	}),
+	draftPlatformConfig: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/platform-config/versions",
+		summary: "起草平台下限新版本（不能低于代码内硬底线）；生成 four-eyes 审批，可选推送范围",
+		access: superAdminAccess("content.draft"),
+		body: z.strictObject({
+			config: WorkflowConfigSchema,
+			reason: ReasonTextSchema,
+			rollout: z.discriminatedUnion("type", [
+				z.object({ type: z.literal("All") }),
+				z.object({ type: z.literal("States"), states: z.array(AustralianStateSchema).min(1) }),
+				z.object({ type: z.literal("Providers"), providerIds: z.array(IdSchema).min(1) }),
+			]),
+		}),
+		response: z.object({ version: ConfigVersionSchema, approval: ApprovalRequestSchema }),
+	}),
+	listFeatureFlags: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/feature-flags",
+		summary: "功能开关（默认关；风险开关显示是否已登记律师意见）",
+		access: superAdminAccess("providers.read"),
+		response: z.array(FeatureFlagSchema),
+	}),
+	setFeatureFlagOverride: defineEndpoint({
+		method: "PUT",
+		path: "/super-admin/feature-flags/:flagKey/overrides",
+		summary: "设置某范围的开关值；全局打开需 four-eyes；风险开关无律师意见时拒绝",
+		access: superAdminAccess("flags.write"),
+		params: FlagParams,
+		body: z.strictObject({ override: FeatureFlagOverrideSchema, reason: ReasonTextSchema }),
+		response: z.object({ flag: FeatureFlagSchema, approval: ApprovalRequestSchema.nullable() }),
+	}),
+	listSupportAccess: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/support-access-requests",
+		summary: "支持访问申请列表（可按 Provider、状态筛选）",
+		access: superAdminAccess("support.request", "audit.read"),
+		query: PageQuerySchema.extend({
+			providerId: IdSchema.optional(),
+			status: SupportAccessStatusSchema.optional(),
+		}),
+		response: pageOf(SupportAccessRequestSchema),
+	}),
+	createSupportAccess: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/support-access-requests",
+		summary: "发起支持访问申请（工单号、原因、范围、时长 ≤ 4 小时，默认 2 小时）；等待机构批准",
+		access: superAdminAccess("support.request"),
+		body: z.strictObject({
+			providerId: IdSchema,
+			ticketRef: SupportTicketRefSchema,
+			reason: ReasonTextSchema,
+			target: SupportAccessTargetSchema,
+			durationMinutes: z.number().int().min(15).max(MAX_SUPPORT_ACCESS_MINUTES),
+		}),
+		response: SupportAccessRequestSchema,
+	}),
+	startSupportSession: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/support-access-requests/:requestId/start",
+		summary: "已批准后开始只读会话（需重新输入密码确认）；签发短期只读 grant",
+		access: superAdminAccess("support.request"),
+		params: SupportRequestParams,
+		body: z.strictObject({ password: z.string().min(1).max(256) }),
+		response: SupportAccessRequestSchema,
+	}),
+	endSupportSession: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/support-access-requests/:requestId/end",
+		summary: "提前结束会话；生成访问摘要（只含对象类型和计数）",
+		access: superAdminAccess("support.request"),
+		params: SupportRequestParams,
+		response: SupportAccessRequestSchema,
+	}),
+	listAuditEvents: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/audit-events",
+		summary: "Super Admin 自身与平台级审计（只读，只追加）",
+		access: superAdminAccess("audit.read"),
+		query: PageQuerySchema.extend(AuditQuerySchema.shape).extend({ providerId: IdSchema.optional() }),
+		response: pageOf(AuditEventSchema),
+	}),
+	listMetrics: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/metrics",
+		summary: "运营指标（聚合，带口径；小样本显示 Fewer than 5；Demo 标 isSample）",
+		access: superAdminAccess("metrics.read"),
+		query: z.strictObject({ providerId: IdSchema.optional() }),
+		response: z.array(DashboardMetricSchema),
+	}),
+	listUsers: defineEndpoint({
+		method: "GET",
+		path: "/super-admin/users",
+		summary: "careKind 内部用户与权限组",
+		access: superAdminAccess("users.manage", "audit.read"),
+		response: z.array(SuperAdminUserSchema),
+	}),
+	setUserGroups: defineEndpoint({
+		method: "PUT",
+		path: "/super-admin/users/:userId/groups",
+		summary: "分配权限组（不能给自己加权限组）",
+		access: superAdminAccess("users.manage"),
+		params: UserParams,
+		body: z.strictObject({ groups: z.array(SuperAdminPermissionGroupSchema), reason: ReasonTextSchema }),
+		response: SuperAdminUserSchema,
+	}),
+	resetDemo: defineEndpoint({
+		method: "POST",
+		path: "/super-admin/demo/reset",
+		summary: "重置本人的 Demo console 会话数据（只在 Demo 会话中可用）",
+		access: superAdminAccess(),
+		response: AcknowledgementSchema,
+	}),
+} as const;
