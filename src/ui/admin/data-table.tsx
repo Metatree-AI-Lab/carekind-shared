@@ -48,7 +48,7 @@ function SkeletonRows({ columnCount }: { columnCount: number }): ReactElement {
 	return (
 		<>
 			{rowIndexes.map((rowIndex) => (
-				<tr key={rowIndex} aria-hidden="true">
+				<tr role="row" key={rowIndex} aria-hidden="true">
 					{cellIndexes.map((cellIndex) => (
 						<td key={cellIndex}>
 							<span className="ck-skeleton ck-table-skeleton-cell" />
@@ -68,9 +68,14 @@ function DataRows<Row>({
 	return (
 		<>
 			{rows.map((row) => (
-				<tr key={getRowKey(row)}>
+				<tr role="row" key={getRowKey(row)}>
 					{columns.map((column) => (
-						<td key={column.key} className={column.isNumeric ? "is-num" : undefined}>
+						<td
+							role="cell"
+							data-label={column.header}
+							key={column.key}
+							className={column.isNumeric ? "is-num" : undefined}
+						>
 							{column.render(row)}
 						</td>
 					))}
@@ -139,7 +144,7 @@ export function DataTable<Row>(props: DataTableProps<Row>): ReactElement {
 				</span>
 			) : null}
 			<div className="ck-table-wrap" aria-busy={isLoading || undefined}>
-				<table className="ck-table">
+				<table className="ck-table ck-table--responsive" role="table">
 					<caption>{props.caption}</caption>
 					<thead>
 						<tr>

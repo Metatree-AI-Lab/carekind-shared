@@ -21,3 +21,14 @@ COMPONENTS.md §12A 的管理端组件（第一阶段 Super Admin 子集）：Ap
 
 ## 不要做
 - 不要在这里做 Combobox、Drawer、Stepper、DiffView、AuditList、DateInput（后续，见 `../CLAUDE.md`）。
+
+## 后台视觉统一（18/10/2026）
+
+Owner: Lightman · Status: Local revision · Last reviewed: 18/10/2026
+
+`AppShell(props): ReactElement`：NavItem 可传现有 IconName；客户端导航后收起手机菜单，原生修饰键导航保留。账户名和职能分行。`DataTable<Row>` 与 Table 同步输出 responsive 类、显式 table/row/cell 角色及字段名 data-label；不更改排序、请求与权限。
+
+## 图片与动效（18/10/2026）
+Owner: Lightman · Status: Local revision · Last reviewed: 18/10/2026
+
+`WorkspaceArtwork({ kind }): ReactElement`：care / notes / connections 映射到既有原创 PNG，只作 aria-hidden 装饰。PageHeader 的可选 artwork 使用同一组件，不传时不显示。动效和 reduced-motion 由 CSS 母版控制。
